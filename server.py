@@ -25,14 +25,34 @@ import socketserver
 # run: python freetests.py
 
 # try: curl -v -X GET http://127.0.0.1:8080/
-
+import os
 
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
         self.data = self.request.recv(1024).strip()
         print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        #self.request.sendall(bytearray("OK",'utf-8'))
+        
+        #print(self.data)
+        #for word in self.data.decode("utf-8").split("\r\n"):
+        #    print(word)
+        
+        headers = self.data.decode("utf-8").split("\r\n")
+        print(type(self.request))
+        if "GET" in headers[0]:
+            if self.validate_path(dir) is not None:
+                pass
+            else:
+                # 404 Paths Not Found
+                pass 
+        else:
+            # 405 Method not allowed
+            pass
+    
+    def validate_path(self, path):
+        pass
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
