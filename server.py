@@ -1,4 +1,5 @@
 #  coding: utf-8 
+from genericpath import isdir
 import socketserver
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
@@ -25,14 +26,88 @@ import socketserver
 # run: python freetests.py
 
 # try: curl -v -X GET http://127.0.0.1:8080/
-
+import os
+from datetime import datetime
 
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
         self.data = self.request.recv(1024).strip()
         print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        #self.request.sendall(bytearray("OK",'utf-8'))
+        #print(self.data)
+        #for word in self.data.decode("utf-8").split("\r\n"):
+        #    print(word)
+
+        response = "HTTP/1.1 "
+        headers = self.data.decode("utf-8").split("\r\n")
+        connection = None
+        for header in headers:
+            if header.split(" ")[0] == "Connection: ":
+                connection = header[1]
+
+        if "GET" in headers[0]:
+            path = headers[0].split(" ")[1]
+            normpath, code = self.validate_path(path)
+            if code == 200:
+                # 200 OK
+                response += "200 OK\r\n"
+                response += self.get_resource(normpath, connection)
+            elif code == 301:
+                # 301 Moved
+                response += "301 Moved Permanently\r\nLocation: http://127.0.0.1:8080/www{}/\n\r".format(os.path.normpath(path))
+                response += self.get_resource(normpath, connection)
+                pass
+            elif code == 404:
+                # 404 Path Not Found
+                response += "404 Not Found\r\n"
+        else:
+            # 405 Method not allowed
+            response += "405 Method Not Allowed\r\n"
+        self.request.sendall(bytearray(response, "utf-8"))
+    
+    def validate_path(self, path):
+        # avoid accessing the parent folders
+        normpath = "www" + os.path.normpath(path)
+        # assume that the page doesn't exist, thus init with 404
+        code = 404 
+        if os.path.isdir(normpath) and normpath[-1] != '/':
+            normpath = normpath + '/index.html'
+            code = 301
+        elif os.path.isfile(normpath):
+            code = 200
+        elif os.path.isdir(normpath):
+            normpath = normpath + 'index.html'
+            code = 200
+        else:
+            code = 404
+        #print(normpath)
+        #print(code)
+        return normpath, code
+
+    def get_resource(self, path, connection):
+        resource_header = "Content-Type: {}; charset=UTF-8\r\nDate: {}\r\nConnection: {}\r\nContent-Length: {}\r\n\r\n"
+        
+        extension = path.split(".")[1]
+        type = "application/octet-stream"
+        if extension == "html":
+            type = "text/html"
+        elif extension == "css":
+            type = "text/css"
+        
+        connect = connection if connection is not None else "close"
+        content = self.get_file_content(path)
+        resource_header = resource_header.format(type, datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT"), connect, len(bytearray(content, "utf-8")))
+        resource = resource_header + content
+        return resource
+
+    def get_file_content(self, path):
+        ret = ""
+        with open(path) as f:
+            for line in f:
+                ret += (line + "\r\n")
+        return ret
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
