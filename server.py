@@ -51,9 +51,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
                 response += self.get_resource(normpath)
             elif code == 301:
                 # 301 Moved
-                response += "301 Moved Permanently\r\nLocation: http://127.0.0.1:8080/www{}/\n\r".format(os.path.normpath(path))
-                response += self.get_resource(normpath)
-                pass
+                date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
+                response += "301 Moved Permanently\r\nLocation: localhost:8080/{}/\r\nDate: {}\r\nConnection: close\r\n".format(normpath, date)
             elif code == 404:
                 # 404 Path Not Found
                 response += "404 Not Found\r\n"
@@ -67,18 +66,15 @@ class MyWebServer(socketserver.BaseRequestHandler):
         normpath = "www" + os.path.normpath(path)
         # assume that the page doesn't exist, thus init with 404
         code = 404 
-        if os.path.isdir(normpath) and normpath[-1] != '/':
-            normpath = normpath + '/index.html'
+        if os.path.isdir(normpath) and path[-1] != '/':
             code = 301
         elif os.path.isfile(normpath):
             code = 200
         elif os.path.isdir(normpath):
-            normpath = normpath + 'index.html'
+            normpath = normpath + '/index.html'
             code = 200
         else:
             code = 404
-        #print(normpath)
-        #print(code)
         return normpath, code
 
     def get_resource(self, path):
